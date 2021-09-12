@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat&display=swap" rel="stylesheet">
+    <meta charset="utf-8">
+    <title>TO DO</title>
+
+    <style  type="text/css">
+      body{
+        height: 100vh;
+        margin: 0;
+        /* background: radial-gradient(#fff, #ffd6d6); */
+        background: radial-gradient(rgba(54,200,180,1), rgba(32,152,126,1));
+
+        background-repeat: no-repeat;
+		}
+
+
+		h1, h2, h3, h4, h5, p, span, strike
+    {
+		  font-family: 'Montserrat', sans-serif;
+		}
+
+    #task-container
+    {
+    max-width:600px;
+    margin:0 auto;
+    box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+    background-color: #fff;
+
+    margin-top:100px;
+    margin-bottom:100px;
+
+    justify-content: space-around;
+    align-items: flex-start;
+
+    }
+
+    #form-wrapper
+    {
+		  position: -webkit-sticky;
+		  position: sticky;
+		  top: 0rem;
+		  border-bottom: 1px solid  #e9e9e9;
+		  background-color: #fff;
+		  box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+ 		  padding:40px;
+		}
+
+		#submit
+    {
+		  background-color: #36d9b6;
+		  border-radius: 5px;
+		  border:0;
+		  color: #fff;
+      padding-left:10px;
+		}
+
+		.flex-wrapper
+    {
+			display: flex;
+		}
+
+		.task-wrapper
+    {
+		  	margin:5px;
+		  	padding: 5px;
+		  	padding:20px;
+		  	cursor: pointer;
+		  	border-bottom: 1px solid  #e9e9e9;
+		  	color: #686868;
+			}
+
+    </style>
+  </head>
+  <body>
+
+  <div class="container">
+		<div id="task-container">
+			<div id="form-wrapper">
+				<form id="form">
+					<div class="flex-wrapper">
+						<div style="flex: 6">
+							<input id="title" class="form-control" type="text" name="title" placeholder="Add task">
+						</div>
+						<div style="flex: 1">
+							<input id="submit" class="btn" type="submit" >
+						</div>
+					</div>
+				</form>
+			</div>
+
+			<div id="list-wrapper">
+
+			</div>
+		</div>
+	</div>
+
+  <script type="text/javascript">
+    function getCookie(name) {
+		    var cookieValue = null;
+		    if (document.cookie && document.cookie !== '') {
+		        var cookies = document.cookie.split(';');
+		        for (var i = 0; i < cookies.length; i++) {
+		            var cookie = cookies[i].trim();
+		            // Does this cookie string begin with the name we want?
+		            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+		                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+		                break;
+		            }
+		        }
+		    }
+		    return cookieValue;
+		}
+		var csrftoken = getCookie('csrftoken');
+    var activeItem = null
+    buildList()
+
+    function buildList(){
+
+      var url = 'http://127.0.0.1:8000/api/task-list/'
+      var wrapper = document.getElementById('list-wrapper')
+      wrapper.innerHTML = ''
+      fetch(url)
+      .then((resp) => resp.json())
+      .then(function(data){
+        console.log('Data: ',data)
+
+        var list = data
+
+        for (var i in list )
+        {
+          var title = `<span class="title">${list[i].title}</span>`
+          if (list[i].completed == true)
+          {
+            title = `<strike class="title">${list[i].title}</strike>`
+          }
+          var item= `
+          <div id="data-row-${i}" class="task-wrapper flex-wrapper">
+							<div style="flex:7">
+							  ${title}
+							</div>
+							<div style="flex:1">
+								<button data-task= ${list[i].id} class="btn btn-sm btn-outline-info edit editTask">Edit </button>
+							</div>
+							<div style="flex:1">
+								<button data-task= ${list[i].id} class="btn btn-sm btn-outline-dark delete deleteTask">-</button>
+							</div>
+						</div>
+          `
+          wrapper.innerHTML += item
+        }
+
+        var updateBtns = document.getElementsByClassName('editTask')
+
+        for (var i=0 ; i< updateBtns.length; i++)
+        {
+          updateBtns[i].addEventListener('click', (function(item){
+            return function(){
+              editItem(item)
+            }
+          }) (list[i]))
+        }
+
+        var deleteBtns = document.getElementsByClassName('deleteTask')
+
+        for (var i=0 ; i< deleteBtns.length; i++)
+        {
+          deleteBtns[i].addEventListener('click', (function(item){
+            return function(){
+              deleteItem(item)
+            }
+          }) (list[i]))
+        }
+
+        var rows = document.getElementsByClassName('task-wrapper')
+
+        for (var i=0 ; i< rows.length; i++)
+        {
+          rows[i].addEventListener('click', (function(item){
+            return function(){
+              strike(item)
+            }
+          }) (list[i]))
+        }
+
+      })
+    }
+
+    var form = document.getElementById('form-wrapper')
+    form.addEventListener('submit', function(e){
+      e.preventDefault(),
+      console.log('Form submitted');
+      var url = 'http://127.0.0.1:8000/api/task-create/'
+      if (activeItem != null){
+				var url = `http://127.0.0.1:8000/api/task-update/${activeItem.id}`
+				activeItem = null
+			}
+
+      var title = document.getElementById('title').value
+      fetch(url, {
+        method : 'POST',
+        headers:{
+          'Content-Type' : 'application/json',
+          'X-CSRFToken': csrftoken,
+          },
+        body: JSON.stringify({'title':title})
+      })
+      .then(function(response){
+      buildList()
+      document.getElementById('form').reset()
+    })
+  })
+
+  function editItem(taskid){
+    console.log('Item is ',taskid.title);
+    activeItem = taskid
+    document.getElementById('title').value = activeItem.title
+  }
+
+  function deleteItem(item){
+    console.log('Item is ',item);
+    url = `http://127.0.0.1:8000/api/task-delete/${item.id}`
+    fetch(url, {
+      method : 'DELETE',
+      headers:{
+        'Content-Type' : 'application/json',
+        'X-CSRFToken': csrftoken,
+        }
+    }).then((response) => {
+				buildList()
+			})
+  }
+
+  function addEditEventListeners(){
+    console.log('here');
+    var updateBtns = document.getElementsByClassName('editTask')
+    console.log('no of buttons ', updateBtns.length);
+
+    for (var i=0 ; i< updateBtns.length; i++)
+    {
+      updateBtns[i].addEventListener('click', function(){
+        console.log('Adding event listener');
+        var task = this.dataset.task
+        console.log('id:',taskid);
+        editItem(task)
+      })
+    }
+  }
+
+  function strike(item)
+  {
+    console.log('Row clicked ',item);
+    item.completed = !item.completed
+    var url = `http://127.0.0.1:8000/api/task-update/${item.id}`
+    fetch(url, {
+      method : 'POST',
+      headers:{
+        'Content-Type' : 'application/json',
+        'X-CSRFToken': csrftoken,
+        },
+      body: JSON.stringify({'title':item.title, 'completed':item.completed})
+    })
+    .then((response) => {
+    buildList()
+    document.getElementById('form').reset()
+  })
+
+  }
+
+  </script>
+  </body>
+</html>
